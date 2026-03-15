@@ -6,7 +6,7 @@ interface Props {
 
 const Calculator: React.FC<Props> = ({ onInsert }) => {
   const buttons = [
-    ['x1', 'x2', 'x3', 'x4', 'x5'],
+    ['x'],
     ['+', '-', '*', '/'],
     ['sin(', 'cos(', 'tan(', 'sqrt('],
     ['exp(', 'log(', 'abs(', 'pow('],

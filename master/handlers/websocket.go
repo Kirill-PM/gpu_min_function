@@ -18,6 +18,7 @@ type WebSocketHub struct {
 	register   chan *websocket.Conn
 	unregister chan *websocket.Conn
 	manager    *worker.Manager
+	ticker     *time.Ticker
 	mu         sync.RWMutex
 }
 
@@ -28,6 +29,7 @@ func NewWebSocketHub(manager *worker.Manager) *WebSocketHub {
 		register:   make(chan *websocket.Conn),
 		unregister: make(chan *websocket.Conn),
 		manager:    manager,
+		ticker:     nil,
 	}
 }
 
@@ -59,14 +61,19 @@ func (h *WebSocketHub) Run() {
 }
 
 func (h *WebSocketHub) StartBroadcasting() {
-	ticker := time.NewTicker(200 * time.Millisecond)
+	h.ticker = time.NewTicker(200 * time.Millisecond)
 	go func() {
-		for range ticker.C {
-			if h.manager.IsRunning() {
-				h.broadcast <- h.manager.GetProgress()
-			}
+		for range h.ticker.C {
+			h.broadcast <- h.manager.GetProgress()
 		}
 	}()
+}
+
+func (h *WebSocketHub) StopBroadcasting() {
+	if h.ticker != nil {
+		h.ticker.Stop()
+		h.ticker = nil
+	}
 }
 
 func (h *WebSocketHub) HandleWebSocket(c *gin.Context) {

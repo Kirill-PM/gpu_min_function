@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { InlineMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
 import FormulaInput from './components/FormulaInput';
@@ -11,9 +10,8 @@ import { apiClient } from './api/client';
 import { useWebSocket } from './hooks/useWebSocket';
 
 interface ProgressData {
-  timestamp: string;
-  bestValue: number;
   elapsedTime: number;
+  bestValue: number;
 }
 
 function App() {
@@ -30,22 +28,28 @@ function App() {
   const [currentProgress, setCurrentProgress] = useState<any>(null);
   const [results, setResults] = useState<any>(null);
 
-  const ws = useWebSocket('ws://localhost:8080/ws', (data) => {
-    setCurrentProgress(data);
-    setProgressData(prev => [...prev.slice(-50), {
-      timestamp: new Date(data.timestamp).toLocaleTimeString(),
-      bestValue: data.best_value,
-      elapsedTime: data.elapsed_time,
-    }]);
-    
-    if (!data.is_running && prev) {
-      setIsRunning(false);
-      setResults({
-        bestValue: data.best_value,
-        bestX: data.best_x,
-        totalIterations: data.total_iterations,
-        totalTime: data.elapsed_time,
-      });
+  const ws = useWebSocket('ws://localhost:3000/ws', (data) => {
+    try {
+      setCurrentProgress(data);
+      if (data.is_running) {
+        setProgressData(prev => [...prev.slice(-50), {
+          elapsedTime: data.elapsed_time || 0,
+          bestValue: data.best_value || 0,
+        }]);
+      }
+
+      if (!data.is_running) {
+        setIsRunning(false);
+        setProgressData([]);
+        setResults({
+          bestValue: data.best_value || 0,
+          bestX: data.best_x || [],
+          totalIterations: data.total_iterations || 0,
+          totalTime: data.elapsed_time || 0,
+        });
+      }
+    } catch (e) {
+      console.error('Error processing WebSocket data:', e, data);
     }
   });
 

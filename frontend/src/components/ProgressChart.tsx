@@ -2,7 +2,7 @@ import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 interface Props {
-  data: Array<{ timestamp: string; bestValue: number; elapsedTime: number }>;
+  data: Array<{ elapsedTime: number; bestValue: number }>;
   currentProgress: any;
 }
 
@@ -24,17 +24,19 @@ const ProgressChart: React.FC<Props> = ({ data, currentProgress }) => {
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
           <XAxis 
-            dataKey="timestamp" 
+            dataKey="elapsedTime" 
             tick={{ fontSize: 10 }}
             interval="preserveStartEnd"
+            tickFormatter={(v) => typeof v === 'number' ? `${v.toFixed(1)}s` : '0.0s'}
+            domain={[0, 'dataMax']}
           />
           <YAxis 
-            tickFormatter={(v) => v.toExponential(1)}
+            tickFormatter={(v) => typeof v === 'number' ? v.toExponential(1) : '0'}
             tick={{ fontSize: 10 }}
           />
           <Tooltip 
-            formatter={(v: number) => [v.toExponential(6), 'Значение']}
-            labelFormatter={(l) => `Время: ${l}`}
+            formatter={(v: number) => [typeof v === 'number' ? v.toExponential(6) : '0', 'Значение']}
+            labelFormatter={(l) => `Время: ${typeof l === 'number' ? l.toFixed(2) : '0.00'} с`}
           />
           <Line 
             type="monotone" 

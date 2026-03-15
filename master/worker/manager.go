@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,8 +15,9 @@ import (
 type Manager struct {
 	workers         map[string]*models.WorkerInfo
 	mu              sync.RWMutex
-	taskQueue       chan *models.Task
-	resultsChan     chan *models.TaskResult
+	currentTask     *models.Task
+	stopCondition   models.StopCondition
+	stopTimer       *time.Timer
 	currentTaskID   string
 	isRunning       bool
 	startTime       *time.Time
@@ -28,10 +30,8 @@ type Manager struct {
 
 func NewManager() *Manager {
 	return &Manager{
-		workers:     make(map[string]*models.WorkerInfo),
-		taskQueue:   make(chan *models.Task, 1000),
-		resultsChan: make(chan *models.TaskResult, 1000),
-		bestValue:   1e18,
+		workers:   make(map[string]*models.WorkerInfo),
+		bestValue: 1e18,
 	}
 }
 
@@ -53,13 +53,23 @@ func (m *Manager) GetWorkers() []models.WorkerInfo {
 	return result
 }
 
-func (m *Manager) StartComputation(task *models.Task, workerCount int) {
+func (m *Manager) StartComputation(task *models.Task, workerCount int, stopCond models.StopCondition) {
 	m.mu.Lock()
 	m.isRunning = true
 	m.currentTaskID = task.ID
+	m.currentTask = task
+	m.stopCondition = stopCond
+	if m.stopTimer != nil {
+		m.stopTimer.Stop()
+	}
+	if stopCond.Type == "time" && stopCond.Duration > 0 {
+		m.stopTimer = time.AfterFunc(time.Duration(stopCond.Duration)*time.Second, func() {
+			m.StopComputation()
+		})
+	}
 	now := time.Now()
 	m.startTime = &now
-	m.totalTasks = workerCount * 20 // 20 задач на воркер при старте
+	m.totalTasks = 0
 	m.completedTasks = 0
 	m.bestValue = 1e18
 	m.bestX = nil
@@ -67,19 +77,16 @@ func (m *Manager) StartComputation(task *models.Task, workerCount int) {
 	m.mu.Unlock()
 
 	// Отправляем начальные задачи каждому воркеру
-	m.mu.RLock()
-	workers := make([]*models.WorkerInfo, 0, len(m.workers))
-	for _, w := range m.workers {
-		workers = append(workers, w)
-	}
-	m.mu.RUnlock()
-
-	for range workers {
+	workers := m.GetWorkers()
+	for _, w := range workers {
 		for i := 0; i < 20; i++ {
-			select {
-			case m.taskQueue <- task:
-			default:
+			if err := m.SendTaskToWorker(w, task); err != nil {
+				fmt.Printf("❌ Не удалось отправить задачу воркеру %s (%s): %v\n", w.ID, w.Address, err)
+				continue
 			}
+			m.mu.Lock()
+			m.totalTasks++
+			m.mu.Unlock()
 		}
 	}
 }
@@ -88,6 +95,10 @@ func (m *Manager) StopComputation() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.isRunning = false
+	if m.stopTimer != nil {
+		m.stopTimer.Stop()
+	}
+	m.startTime = nil
 }
 
 func (m *Manager) IsRunning() bool {
@@ -117,9 +128,31 @@ func (m *Manager) GetProgress() models.ProgressUpdate {
 	}
 }
 
+func (m *Manager) shouldStopLocked() bool {
+	if !m.isRunning {
+		return true
+	}
+
+	sc := m.stopCondition
+	if sc.Type == "time" && sc.Duration > 0 && m.startTime != nil {
+		if time.Since(*m.startTime).Seconds() >= float64(sc.Duration) {
+			return true
+		}
+	}
+	if sc.Type == "iterations" && sc.Iterations > 0 {
+		if m.totalIterations >= sc.Iterations {
+			return true
+		}
+	}
+	return false
+}
+
 func (m *Manager) ProcessResult(result *models.TaskResult) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	if !m.isRunning {
+		m.mu.Unlock()
+		return
+	}
 
 	m.completedTasks++
 	m.totalIterations += int64(result.Iterations)
@@ -129,14 +162,52 @@ func (m *Manager) ProcessResult(result *models.TaskResult) {
 		m.bestX = result.BestX
 	}
 
-	// Отправляем новую задачу воркеру (если ещё есть что отправлять)
-	// Это упрощённая логика - в реальности нужно отслеживать по воркерам
+	stop := m.shouldStopLocked()
+	if stop {
+		m.isRunning = false
+		if m.stopTimer != nil {
+			m.stopTimer.Stop()
+		}
+	}
+	m.mu.Unlock()
+
+	if stop {
+		return
+	}
+
+	// Отправляем новую задачу воркеру
+	m.mu.RLock()
+	workerInfo, ok := m.workers[result.WorkerID]
+	m.mu.RUnlock()
+	if !ok {
+		return
+	}
+
+	if err := m.SendTaskToWorker(*workerInfo, m.currentTask); err != nil {
+		fmt.Printf("❌ Ошибка отправки следующей задачи воркеру %s: %v\n", workerInfo.ID, err)
+		return
+	}
+	m.mu.Lock()
+	m.totalTasks++
+	m.mu.Unlock()
 }
 
-func (m *Manager) SendTaskToWorker(workerAddr string, task *models.Task) error {
+func (m *Manager) SendTaskToWorker(worker models.WorkerInfo, task *models.Task) error {
+	addr := worker.Address
+	if addr == "" {
+		addr = worker.ID
+	}
+	if !strings.Contains(addr, "://") {
+		// assume default port 5000 if not provided
+		if !strings.Contains(addr, ":") {
+			addr = fmt.Sprintf("%s:5000", addr)
+		}
+		addr = "http://" + addr
+	}
+	url := fmt.Sprintf("%s/task", strings.TrimRight(addr, "/"))
 	payload, _ := json.Marshal(task)
-	resp, err := http.Post(fmt.Sprintf("http://%s/task", workerAddr),
-		"application/json", bytes.NewBuffer(payload))
+	fmt.Printf("📤 Отправляю задачу на %s\n", url)
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(payload))
 	if err != nil {
 		return err
 	}

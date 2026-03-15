@@ -3,13 +3,39 @@ import sys
 import time
 import uuid
 import requests
+import threading
 from flask import Flask, request, jsonify
 from opencl_kernel import OpenCLWorker, validate_formula_cpu
 
 app = Flask(__name__)
 worker = OpenCLWorker()
 WORKER_ID = str(uuid.uuid4())[:8]
-MASTER_URL = os.getenv("MASTER_URL", "http://master:8080")
+MASTER_URL = os.getenv("MASTER_URL", "http://localhost:8080")
+
+def execute_with_timeout(func, timeout_sec):
+    """Выполняет функцию с таймаутом"""
+    result = [None]
+    exception = [None]
+    
+    def worker():
+        try:
+            result[0] = func()
+        except Exception as e:
+            exception[0] = e
+    
+    thread = threading.Thread(target=worker)
+    thread.start()
+    thread.join(timeout_sec)
+    
+    if thread.is_alive():
+        print(f"⏰ Таймаут выполнения задачи ({timeout_sec}s)")
+        return None
+    
+    if exception[0]:
+        print(f"❌ Исключение в задаче: {exception[0]}")
+        return None
+    
+    return result[0]
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -29,6 +55,7 @@ def info():
 @app.route('/task', methods=['POST'])
 def receive_task():
     task = request.json
+    print(f"📨 Получена задача: {task['id']}")
     
     # Валидация на CPU
     is_valid, message = validate_formula_cpu(
@@ -45,11 +72,11 @@ def receive_task():
     
     # Если предупреждение — логируем, но продолжаем
     if "Предупреждение" in message:
-        print(f"⚠️ {message}")
+        print(f"{message}")
     
     # ... дальше выполнение задачи как раньше
     try:
-        result = worker.execute_task(
+        result = execute_with_timeout(lambda: worker.execute_task(
             formula=task["formula"],
             var_count=task["variable_count"],
             mode=task["mode"],
@@ -59,13 +86,22 @@ def receive_task():
             iterations=task["iterations"],
             seed=task["seed"],
             thread_count=task["thread_count"],
-        )
+        ), 5)
+        
+        if result is None:
+            print("❌ Задача не выполнена (таймаут или ошибка)")
+            return jsonify({"error": "task failed"}), 500
         
         # Отправляем результат мастеру
         result["task_id"] = task["id"]
         result["worker_id"] = WORKER_ID
         
-        requests.post(f"{MASTER_URL}/api/task/result", json=result, timeout=5)
+        try:
+            resp = requests.post(f"{MASTER_URL}/api/task/result", json=result, timeout=5)
+            if resp.status_code != 200:
+                print(f"❌ Ошибка отправки результата: {resp.status_code}")
+        except Exception as e:
+            print(f"❌ Ошибка отправки результата мастеру: {e}")
         
         return jsonify({"success": True, "task_id": task["id"]})
     
@@ -79,6 +115,8 @@ def register_with_master():
         "id": WORKER_ID,
         "gpu_name": gpu_info["gpu_name"],
         "thread_count": gpu_info["thread_count"],
+        # Мастер будет вызывать /task по этому адресу
+        "address": os.getenv("WORKER_ADDRESS", "host.docker.internal:5000"),
     }
     
     max_retries = 10
@@ -101,4 +139,4 @@ if __name__ == '__main__':
     
     register_with_master()
     
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, threaded=True)

@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -42,7 +44,13 @@ func (h *APIHandler) RegisterWorker(c *gin.Context) {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
-	info.Address = c.ClientIP()
+	if info.Address == "" {
+		info.Address = c.ClientIP()
+	}
+	// Если адрес не содержит порт, добавляем стандартный порт 5000
+	if !strings.Contains(info.Address, ":") {
+		info.Address = info.Address + ":5000"
+	}
 	h.manager.RegisterWorker(&info)
 	c.JSON(200, gin.H{"success": true, "worker_id": info.ID})
 }
@@ -77,7 +85,8 @@ func (h *APIHandler) StartComputation(c *gin.Context) {
 		return
 	}
 
-	h.manager.StartComputation(task, workerCount)
+	h.manager.StartComputation(task, workerCount, req.StopCondition)
+	h.wsHub.StartBroadcasting()
 
 	c.JSON(200, models.StartResponse{
 		Success: true,
@@ -88,6 +97,7 @@ func (h *APIHandler) StartComputation(c *gin.Context) {
 
 func (h *APIHandler) StopComputation(c *gin.Context) {
 	h.manager.StopComputation()
+	h.wsHub.StopBroadcasting()
 	c.JSON(200, models.StopResponse{
 		Success: true,
 		Message: "Computation stopped",
@@ -126,6 +136,7 @@ func (h *APIHandler) ReceiveTaskResult(c *gin.Context) {
 		return
 	}
 
+	fmt.Printf("📥 Получен результат от воркера %s: best_value=%.6f, iterations=%d\n", result.WorkerID, result.BestValue, result.Iterations)
 	h.manager.ProcessResult(&result)
 	c.JSON(200, gin.H{"success": true})
 }

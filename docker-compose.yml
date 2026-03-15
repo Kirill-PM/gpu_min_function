@@ -10,17 +10,6 @@ services:
     networks:
       - gpu-net
 
-  worker:
-    build: ./worker
-    environment:
-      - MASTER_URL=http://master:8080
-    depends_on:
-      - master
-    networks:
-      - gpu-net
-    # Для доступа к GPU на Windows нужен специальный драйвер
-    # На Linux добавить: devices: [/dev/dri]
-
   frontend:
     build: ./frontend
     ports:
