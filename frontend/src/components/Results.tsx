@@ -19,8 +19,13 @@ const Results: React.FC<Props> = ({ results }) => {
     );
   }
 
+  const formatNumber = (v: number, digits = 4) => {
+    if (!Number.isFinite(v)) return '—';
+    return v.toLocaleString(undefined, { maximumFractionDigits: digits });
+  };
+
   const latexX = results.bestX
-    .map((v, i) => `x_${i + 1} = ${v.toExponential(4)}`)
+    .map((v, i) => `x_${i + 1} = ${formatNumber(v, 4)}`)
     .join(', \\quad ');
 
   return (
@@ -30,7 +35,7 @@ const Results: React.FC<Props> = ({ results }) => {
       <div className="result-card">
         <div className="result-row">
           <span className="label">Минимальное значение:</span>
-          <span className="value highlight">{results.bestValue.toExponential(8)}</span>
+          <span className="value highlight">{formatNumber(results.bestValue, 8)}</span>
         </div>
         
         <div className="result-row">
@@ -47,13 +52,19 @@ const Results: React.FC<Props> = ({ results }) => {
 
         <div className="result-row">
           <span className="label">Время расчёта:</span>
-          <span className="value">{results.totalTime.toFixed(3)} сек</span>
+          <span className="value">
+            {results.totalTime > 0
+              ? `${results.totalTime.toFixed(3)} сек`
+              : '—'}
+          </span>
         </div>
 
         <div className="result-row">
           <span className="label">Производительность:</span>
           <span className="value">
-            {(results.totalIterations / results.totalTime / 1e6).toFixed(2)} млн итер/сек
+            {results.totalTime > 0
+              ? `${(results.totalIterations / results.totalTime / 1e6).toFixed(2)} млн итер/сек`
+              : '—'}
           </span>
         </div>
       </div>

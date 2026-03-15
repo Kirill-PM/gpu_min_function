@@ -66,8 +66,11 @@ func (h *APIHandler) StartComputation(c *gin.Context) {
 	h.currentReq = &req
 	h.mu.Unlock()
 
+	batchID := time.Now().Format("20060102150405")
+	// ID будет назначаться по порядку (0,1,2...) в менеджере; batchID хранит метку этого запуска
 	task := &models.Task{
-		ID:            time.Now().Format("20060102150405"),
+		ID:            "0",
+		BatchID:       batchID,
 		Formula:       req.Formula,
 		Mode:          req.Mode,
 		Target:        req.Target,
@@ -135,7 +138,6 @@ func (h *APIHandler) ReceiveTaskResult(c *gin.Context) {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
-
 	fmt.Printf("📥 Получен результат от воркера %s: best_value=%.6f, iterations=%d\n", result.WorkerID, result.BestValue, result.Iterations)
 	h.manager.ProcessResult(&result)
 	c.JSON(200, gin.H{"success": true})

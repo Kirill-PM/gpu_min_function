@@ -27,20 +27,30 @@ function App() {
   const [progressData, setProgressData] = useState<ProgressData[]>([]);
   const [currentProgress, setCurrentProgress] = useState<any>(null);
   const [results, setResults] = useState<any>(null);
+  const [fixedChartDuration, setFixedChartDuration] = useState<number | undefined>(undefined);
 
   const ws = useWebSocket('ws://localhost:3000/ws', (data) => {
     try {
       setCurrentProgress(data);
-      if (data.is_running) {
-        setProgressData(prev => [...prev.slice(-50), {
-          elapsedTime: data.elapsed_time || 0,
-          bestValue: data.best_value || 0,
-        }]);
+
+      // Don't add the initial placeholder value (1e18) to the chart.
+      // Only plot values received from workers (when at least one task completed).
+      const bestValue = data.best_value;
+      const hasWorkerValue = Number.isFinite(bestValue) && bestValue < 1e18 && data.completed_tasks > 0;
+
+      if (data.is_running && hasWorkerValue) {
+        setProgressData(prev => [
+          ...prev,
+          {
+            elapsedTime: data.elapsed_time || 0,
+            bestValue,
+          },
+        ]);
       }
 
       if (!data.is_running) {
         setIsRunning(false);
-        setProgressData([]);
+        // Не стираем прогресс, чтобы график оставался видимым после завершения.
         setResults({
           bestValue: data.best_value || 0,
           bestX: data.best_x || [],
@@ -69,8 +79,10 @@ function App() {
         },
       });
       setIsRunning(true);
-      setProgressData([]);
+      // Сбрасываем график и добавляем начальную точку в 0
+      setProgressData([{ elapsedTime: 0, bestValue: 0 }]);
       setResults(null);
+      setFixedChartDuration(stopType === 'time' ? stopValue : undefined);
     } catch (err) {
       alert('Ошибка запуска: ' + err);
     }
@@ -187,7 +199,7 @@ function App() {
         </section>
 
         <section className="progress-section">
-          <ProgressChart data={progressData} currentProgress={currentProgress} />
+          <ProgressChart data={progressData} currentProgress={currentProgress} maxElapsedTime={fixedChartDuration} />
         </section>
 
         <section className="results-section">

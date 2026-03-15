@@ -40,7 +40,7 @@ class OpenCLWorker:
         if self.has_gpu:
             return {
                 "gpu_name": self.device.name,
-                "thread_count": self.device.max_compute_units * 16,  # примерная оценка
+                "thread_count": self.device.max_compute_units * 256,  # примерная оценка
                 "max_memory": self.device.global_mem_size // (1024 * 1024),  # MB
             }
         else:

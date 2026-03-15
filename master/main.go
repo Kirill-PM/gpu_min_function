@@ -2,17 +2,22 @@ package main
 
 import (
 	"log"
+	"math/rand"
 	"net/http"
+	"time"
 
-	"github.com/gin-gonic/gin"
 	"gpu-optimizer/master/handlers"
 	"gpu-optimizer/master/worker"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
+
 	manager := worker.NewManager()
 	wsHub := handlers.NewWebSocketHub(manager)
-	
+
 	go wsHub.Run()
 	go wsHub.StartBroadcasting()
 

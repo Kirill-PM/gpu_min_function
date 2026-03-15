@@ -27,6 +27,8 @@ type TaskRequest struct {
 
 type Task struct {
 	ID            string   `json:"id"`
+	BatchID       string   `json:"batch_id,omitempty"` // групповая метка (старт запуска)
+	PacketID      int64    `json:"packet_id"`          // уникальный номер пакета
 	Formula       string   `json:"formula"`
 	Mode          TaskMode `json:"mode"`
 	Target        float64  `json:"target,omitempty"`
@@ -40,6 +42,7 @@ type Task struct {
 
 type TaskResult struct {
 	TaskID     string    `json:"task_id"`
+	PacketID   int64     `json:"packet_id,omitempty"`
 	BestValue  float64   `json:"best_value"`
 	BestX      []float64 `json:"best_x"`
 	Iterations int       `json:"iterations"`
