@@ -6,12 +6,12 @@ interface Props {
 
 const Calculator: React.FC<Props> = ({ onInsert }) => {
   const buttons = [
-    ['x'],
-    ['+', '-', '*', '/'],
+    ['7', '8', '9', '/'],
+    ['4', '5', '6', '*'],
+    ['1', '2', '3', '-'],
+    ['0', '.', '(', ')'],
     ['sin(', 'cos(', 'tan(', 'sqrt('],
     ['exp(', 'log(', 'abs(', 'pow('],
-    ['(', ')', '^', '.'],
-    ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
   ];
 
   return (
@@ -28,10 +28,10 @@ const Calculator: React.FC<Props> = ({ onInsert }) => {
           </button>
         ))}
         <button className="calc-btn clear" onClick={() => onInsert('')}>
-          Clear
+          C
         </button>
         <button className="calc-btn backspace" onClick={() => onInsert('\b')}>
-          ⌫
+          ←
         </button>
       </div>
     </div>

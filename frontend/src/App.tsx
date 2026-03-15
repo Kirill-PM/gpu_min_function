@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { InlineMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
 import FormulaInput from './components/FormulaInput';
-import Calculator from './components/Calculator';
 import ProgressChart from './components/ProgressChart';
 import Results from './components/Results';
 import Controls from './components/Controls';
@@ -21,7 +20,6 @@ function App() {
   const [variableCount, setVariableCount] = useState(3);
   const [rangeMin, setRangeMin] = useState(-100);
   const [rangeMax, setRangeMax] = useState(100);
-  const [stopType, setStopType] = useState<'time' | 'iterations'>('time');
   const [stopValue, setStopValue] = useState(30);
   const [isRunning, setIsRunning] = useState(false);
   const [progressData, setProgressData] = useState<ProgressData[]>([]);
@@ -73,16 +71,15 @@ function App() {
         range_min: rangeMin,
         range_max: rangeMax,
         stop_condition: {
-          type: stopType,
-          duration: stopType === 'time' ? stopValue : undefined,
-          iterations: stopType === 'iterations' ? stopValue : undefined,
+          type: 'time',
+          duration: stopValue,
         },
       });
       setIsRunning(true);
       // Сбрасываем график и добавляем начальную точку в 0
       setProgressData([{ elapsedTime: 0, bestValue: 0 }]);
       setResults(null);
-      setFixedChartDuration(stopType === 'time' ? stopValue : undefined);
+      setFixedChartDuration(stopValue);
     } catch (err) {
       alert('Ошибка запуска: ' + err);
     }
@@ -109,7 +106,7 @@ function App() {
   return (
     <div className="app">
       <header>
-        <h1>🎯 GPU Optimizer</h1>
+        <h1>GPU Optimizer</h1>
         <div className="formula-display">
           <InlineMath math={latexFormula} />
         </div>
@@ -122,7 +119,6 @@ function App() {
             onChange={setFormula} 
             variableCount={variableCount}
           />
-          <Calculator onInsert={setFormula} />
           
           <div className="mode-selector">
             <label>
@@ -179,10 +175,7 @@ function App() {
 
           <div className="stop-condition">
             <label>
-              <select value={stopType} onChange={e => setStopType(e.target.value as any)}>
-                <option value="time">По времени (сек)</option>
-                <option value="iterations">По итерациям</option>
-              </select>
+              Количество секунд:
               <input 
                 type="number" 
                 value={stopValue} 

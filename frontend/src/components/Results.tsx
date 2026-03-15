@@ -1,5 +1,5 @@
 import React from 'react';
-import { InlineMath, BlockMath } from 'react-katex';
+import { InlineMath } from 'react-katex';
 
 interface Props {
   results: {
@@ -19,18 +19,18 @@ const Results: React.FC<Props> = ({ results }) => {
     );
   }
 
-  const formatNumber = (v: number, digits = 4) => {
+  const formatNumber = (v: number, digits = 8) => {
     if (!Number.isFinite(v)) return '—';
     return v.toLocaleString(undefined, { maximumFractionDigits: digits });
   };
 
   const latexX = results.bestX
-    .map((v, i) => `x_${i + 1} = ${formatNumber(v, 4)}`)
+    .map((v, i) => `x_${i + 1} = ${formatNumber(v)}`)
     .join(', \\quad ');
 
   return (
     <div className="results">
-      <h3>✅ Результаты</h3>
+      <h3>Результаты</h3>
       
       <div className="result-card">
         <div className="result-row">

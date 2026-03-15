@@ -21,10 +21,10 @@ const ProgressChart: React.FC<Props> = ({ data, currentProgress, maxElapsedTime 
       
       {currentProgress && (
         <div className="progress-stats">
-          <span>⏱ {currentProgress.elapsed_time?.toFixed(2)} сек</span>
-          <span>📊 Задач: {currentProgress.completed_tasks}/{currentProgress.total_tasks}</span>
-          <span>🎯 Лучшее: {formatNumber(currentProgress.best_value, 6)}</span>
-          <span>🔄 Итераций: {currentProgress.total_iterations?.toLocaleString()}</span>
+          <span>Время: {currentProgress.elapsed_time?.toFixed(2)} сек</span>
+          <span>Задач: {currentProgress.completed_tasks}</span>
+          <span>Лучшее: {formatNumber(currentProgress.best_value, 6)}</span>
+          <span>Итераций: {currentProgress.total_iterations?.toLocaleString()}</span>
         </div>
       )}
 

@@ -97,18 +97,20 @@ main {
 
 .calc-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 0.25rem;
 }
 
 .calc-btn {
-  padding: 0.5rem;
+  padding: 0.8rem;
   border: 1px solid #e2e8f0;
   background: #f8fafc;
   border-radius: 0.25rem;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 1rem;
+  font-weight: 600;
   transition: background 0.1s;
+  height: 3rem;
 }
 
 .calc-btn:hover {
@@ -122,7 +124,7 @@ main {
 }
 
 .calc-btn.backspace {
-  grid-column: span 3;
+  grid-column: span 2;
   background: #fef3c7;
   border-color: #fde68a;
 }

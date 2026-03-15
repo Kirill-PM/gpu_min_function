@@ -14,7 +14,7 @@ const Controls: React.FC<Props> = ({ isRunning, onStart, onStop }) => {
         onClick={onStart}
         disabled={isRunning}
       >
-        ▶ Запустить
+        Запустить
       </button>
       
       <button 
@@ -22,7 +22,7 @@ const Controls: React.FC<Props> = ({ isRunning, onStart, onStop }) => {
         onClick={onStop}
         disabled={!isRunning}
       >
-        ⏹ Остановить
+        Остановить
       </button>
       
       {isRunning && (

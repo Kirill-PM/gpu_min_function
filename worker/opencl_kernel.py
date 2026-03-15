@@ -113,7 +113,7 @@ class OpenCLWorker:
         for py_func, cl_func in replacements.items():
             cl_formula = cl_formula.replace(py_func, cl_func)
         if mode == 'find_target':
-            cl_formula = f'fabs(({cl_formula}) - {target}f)'
+            cl_formula = f'fabs(({cl_formula}) - ({target}))'
 
         # Генерация кода для переменных
         # В цикле по итерациям получаем новое состояние и генерируем все переменные
